@@ -191,7 +191,7 @@ export function analyzeRows(rows, reportTime) {
   }
 
   const orders = rows.map(normalizeOrder);
-  const valid = orders.filter((order) => !order.isCanceled && order.inboundAt);
+  const valid = orders.filter((order) => !order.isCanceled && order.inboundAt && order.statusRaw !== "小邮局处理中");
 
   // 将前一天的入库时间统一调整为报表日期当天 9:00
   const reportDate = new Date(reportAt.getFullYear(), reportAt.getMonth(), reportAt.getDate());
