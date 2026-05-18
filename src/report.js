@@ -196,12 +196,16 @@ export function analyzeRows(rows, reportTime) {
   const orders = rows.map(normalizeOrder);
   const valid = orders.filter((order) => !order.isCanceled && order.inboundAt && order.statusRaw !== "小邮局处理中");
 
-  // 将前一天的入库时间统一调整为报表日期当天 9:00
+  // 仅将报表日前一天 20:00 至报表日 0:00 前的入库时间调整为报表日当天 9:00
   const reportDate = new Date(reportAt.getFullYear(), reportAt.getMonth(), reportAt.getDate());
+  const rolloverStart = new Date(reportDate);
+  rolloverStart.setDate(rolloverStart.getDate() - 1);
+  rolloverStart.setHours(20, 0, 0, 0);
+  const rolloverTarget = new Date(reportDate.getFullYear(), reportDate.getMonth(), reportDate.getDate(), 9, 0, 0);
+
   valid.forEach((order) => {
-    const inboundDate = new Date(order.inboundAt.getFullYear(), order.inboundAt.getMonth(), order.inboundAt.getDate());
-    if (inboundDate < reportDate) {
-      order.inboundAt = new Date(reportDate.getFullYear(), reportDate.getMonth(), reportDate.getDate(), 9, 0, 0);
+    if (order.inboundAt >= rolloverStart && order.inboundAt < reportDate) {
+      order.inboundAt = new Date(rolloverTarget);
     }
   });
 
