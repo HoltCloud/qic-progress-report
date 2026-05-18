@@ -193,6 +193,15 @@ export function analyzeRows(rows, reportTime) {
   const orders = rows.map(normalizeOrder);
   const valid = orders.filter((order) => !order.isCanceled && order.inboundAt);
 
+  // 将前一天的入库时间统一调整为报表日期当天 9:00
+  const reportDate = new Date(reportAt.getFullYear(), reportAt.getMonth(), reportAt.getDate());
+  valid.forEach((order) => {
+    const inboundDate = new Date(order.inboundAt.getFullYear(), order.inboundAt.getMonth(), order.inboundAt.getDate());
+    if (inboundDate < reportDate) {
+      order.inboundAt = new Date(reportDate.getFullYear(), reportDate.getMonth(), reportDate.getDate(), 9, 0, 0);
+    }
+  });
+
   const tailTable = buildTailTable(valid, reportAt);
 
   return {
