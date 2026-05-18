@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import html2canvas from "html2canvas";
 import { CARRIERS, analyzeWorkbookFile, pad, toInputDateTime } from "./report.js";
 
 const initialCarrierRows = [
@@ -165,39 +166,24 @@ export default function App() {
     if (currentFile) analyze(currentFile, nextTime);
   }
 
-  function exportPng() {
+  async function exportPng() {
     const source = reportRef.current;
     if (!source) return;
-    const width = source.scrollWidth;
-    const height = source.scrollHeight;
-    const clone = source.cloneNode(true);
-    clone.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
-    const styles = Array.from(document.styleSheets)
-      .map((sheet) => Array.from(sheet.cssRules).map((rule) => rule.cssText).join("\n"))
-      .join("\n");
-    const style = document.createElement("style");
-    style.textContent = styles;
-    clone.prepend(style);
-    const html = new XMLSerializer().serializeToString(clone);
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><foreignObject width="100%" height="100%">${html}</foreignObject></svg>`;
-    const image = new Image();
-    const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml;charset=utf-8" }));
-    image.onload = () => {
-      const canvas = document.createElement("canvas");
-      canvas.width = width * 2;
-      canvas.height = height * 2;
-      const ctx = canvas.getContext("2d");
-      ctx.scale(2, 2);
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, width, height);
-      ctx.drawImage(image, 0, 0);
-      URL.revokeObjectURL(url);
+    try {
+      const canvas = await html2canvas(source, {
+        scale: 2,
+        backgroundColor: "#ffffff",
+        useCORS: true,
+        logging: false,
+      });
       const link = document.createElement("a");
       link.download = `作业进度小时跟进表_${report.report_date.replaceAll("/", "-")}_${report.report_clock.replace(":", "")}.png`;
       link.href = canvas.toDataURL("image/png");
       link.click();
-    };
-    image.src = url;
+    } catch (error) {
+      console.error("导出图片失败:", error);
+      setStatus("导出图片失败，请重试。");
+    }
   }
 
   const hasData = report.valid_count > 0;
