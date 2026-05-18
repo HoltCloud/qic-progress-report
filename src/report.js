@@ -23,6 +23,20 @@ function cleanText(value) {
   return String(value).trim();
 }
 
+function normalizeHeader(value) {
+  return cleanText(value).replace(/^\uFEFF/, "").replace(/[\s　:：()（）_-]/g, "");
+}
+
+function valueByHeader(row, candidates) {
+  for (const candidate of candidates) {
+    if (Object.prototype.hasOwnProperty.call(row, candidate)) return row[candidate];
+  }
+
+  const wanted = candidates.map(normalizeHeader);
+  const matchedKey = Object.keys(row).find((key) => wanted.includes(normalizeHeader(key)));
+  return matchedKey ? row[matchedKey] : "";
+}
+
 function parseExcelDate(value) {
   if (value == null || value === "") return null;
   if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
@@ -39,15 +53,16 @@ function parseExcelDate(value) {
 }
 
 function normalizeOrder(row) {
+  const merchant = cleanText(valueByHeader(row, ["商家名称", "商家", "店铺名称", "店铺"]));
   return {
-    merchant: cleanText(row["商家名称"]) || "未填写商家",
-    carrierRaw: cleanText(row["实际发货快递"]),
-    statusRaw: cleanText(row["订单履约状态"]),
-    isCanceled: cleanText(row["是否取消"]) === "是",
-    inboundAt: parseExcelDate(row["入库时间"]),
-    qcDoneAt: parseExcelDate(row["质检完成时间"]),
-    outboundAt: parseExcelDate(row["出库时间"]),
-    pickupAt: parseExcelDate(row["揽收时间"]),
+    merchant: merchant || "未填写商家",
+    carrierRaw: cleanText(valueByHeader(row, ["实际发货快递", "快递公司", "快递", "承运商"])),
+    statusRaw: cleanText(valueByHeader(row, ["订单履约状态", "履约状态", "状态"])),
+    isCanceled: cleanText(valueByHeader(row, ["是否取消", "取消状态"])) === "是",
+    inboundAt: parseExcelDate(valueByHeader(row, ["入库时间", "入仓时间"])),
+    qcDoneAt: parseExcelDate(valueByHeader(row, ["质检完成时间", "质检时间"])),
+    outboundAt: parseExcelDate(valueByHeader(row, ["出库时间", "出仓时间"])),
+    pickupAt: parseExcelDate(valueByHeader(row, ["揽收时间", "揽件时间"])),
   };
 }
 
@@ -149,11 +164,24 @@ function buildTailTable(orders, reportAt) {
     }
   });
 
-  return [...merchants.values()].sort((a, b) => {
+  const rows = [...merchants.values()].sort((a, b) => {
     const riskA = a.picked_overdue + a.unpicked_overdue + a.unpicked_soon + a.qc_soon;
     const riskB = b.picked_overdue + b.unpicked_overdue + b.unpicked_soon + b.qc_soon;
     return riskB - riskA || b.total - a.total || a.merchant.localeCompare(b.merchant, "zh-Hans-CN");
   });
+
+  if (!rows.length && orders.length) {
+    rows.push({
+      merchant: "未识别商家",
+      total: orders.length,
+      picked_overdue: 0,
+      unpicked_overdue: 0,
+      unpicked_soon: 0,
+      qc_soon: 0,
+    });
+  }
+
+  return rows;
 }
 
 export function analyzeRows(rows, reportTime) {
@@ -165,14 +193,18 @@ export function analyzeRows(rows, reportTime) {
   const orders = rows.map(normalizeOrder);
   const valid = orders.filter((order) => !order.isCanceled && order.inboundAt);
 
+  const tailTable = buildTailTable(valid, reportAt);
+
   return {
     report_date: `${reportAt.getFullYear()}/${reportAt.getMonth() + 1}/${reportAt.getDate()}`,
     report_clock: `${pad(reportAt.getHours())}:${pad(reportAt.getMinutes())}`,
     valid_count: valid.length,
     skipped_count: orders.length - valid.length,
+    merchant_count: tailTable.length,
+    merchant_total: tailTable.reduce((sum, row) => sum + row.total, 0),
     carrier_table: buildCarrierTable(valid),
     hour_table: buildHourTable(valid, reportAt),
-    tail_table: buildTailTable(valid, reportAt),
+    tail_table: tailTable,
   };
 }
 

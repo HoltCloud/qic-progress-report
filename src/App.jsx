@@ -126,6 +126,8 @@ export default function App() {
     report_clock: nowMeta().clock,
     valid_count: 0,
     skipped_count: 0,
+    merchant_count: 0,
+    merchant_total: 0,
     carrier_table: initialCarrierRows,
     hour_table: initialHourRows,
     tail_table: [],
@@ -142,7 +144,7 @@ export default function App() {
     try {
       const nextReport = await analyzeWorkbookFile(file, time);
       setReport(nextReport);
-      setStatus(`已统计 ${nextReport.valid_count} 单，已剔除取消/无入库时间 ${nextReport.skipped_count} 单。`);
+      setStatus(`已统计 ${nextReport.valid_count} 单，右侧商家 ${nextReport.merchant_count} 个、商家总单量 ${nextReport.merchant_total} 单；已剔除取消/无入库时间 ${nextReport.skipped_count} 单。`);
     } catch (error) {
       console.error(error);
       setStatus(error.message || "解析失败，请检查文件格式。");
