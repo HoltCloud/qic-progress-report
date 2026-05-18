@@ -157,7 +157,11 @@ export default function App() {
   function handleFile(event) {
     const file = event.target.files?.[0] || null;
     setCurrentFile(file);
-    if (file) analyze(file);
+    if (file) {
+      const now = toInputDateTime(new Date());
+      setReportTime(now);
+      analyze(file, now);
+    }
   }
 
   function handleTimeChange(event) {
