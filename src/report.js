@@ -160,7 +160,10 @@ function buildTailTable(orders, reportAt) {
       row.unpicked_overdue += 1;
     } else if (currentHours > 6.5) {
       row.unpicked_soon += 1;
-      if (progress(order) === "qc") row.qc_soon += 1;
+    }
+
+    if (!isPicked && currentHours > 4.5 && progress(order) === "qc") {
+      row.qc_soon += 1;
     }
   });
 

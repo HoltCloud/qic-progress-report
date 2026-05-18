@@ -95,8 +95,8 @@ function TailTable({ rows }) {
           <th>总单量</th>
           <th>已揽收超时单量</th>
           <th>未揽收超时单量</th>
-          <th>未揽收即将超时大于6.5小时</th>
-          <th>质检中即将超时大于6.5小时</th>
+           <th>未揽收即将超时大于6.5小时</th>
+           <th>质检中即将超时大于4.5小时</th>
         </tr>
       </thead>
       <tbody>
