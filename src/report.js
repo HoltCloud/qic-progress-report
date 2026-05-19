@@ -187,6 +187,24 @@ function buildTailTable(orders, reportAt) {
   return rows;
 }
 
+function buildTailSummary(tailTable) {
+  return tailTable.reduce(
+    (summary, row) => {
+      summary.picked_overdue += row.picked_overdue;
+      summary.unpicked_overdue += row.unpicked_overdue;
+      summary.unpicked_soon += row.unpicked_soon;
+      summary.qc_soon += row.qc_soon;
+      return summary;
+    },
+    {
+      picked_overdue: 0,
+      unpicked_overdue: 0,
+      unpicked_soon: 0,
+      qc_soon: 0,
+    }
+  );
+}
+
 export function analyzeRows(rows, reportTime) {
   const reportAt = reportTime ? new Date(reportTime) : new Date();
   if (Number.isNaN(reportAt.getTime())) {
@@ -210,6 +228,7 @@ export function analyzeRows(rows, reportTime) {
   });
 
   const tailTable = buildTailTable(valid, reportAt);
+  const tailSummary = buildTailSummary(tailTable);
 
   return {
     report_date: `${reportAt.getFullYear()}/${reportAt.getMonth() + 1}/${reportAt.getDate()}`,
@@ -221,6 +240,7 @@ export function analyzeRows(rows, reportTime) {
     carrier_table: buildCarrierTable(valid),
     hour_table: buildHourTable(valid, reportAt),
     tail_table: tailTable,
+    tail_summary: tailSummary,
   };
 }
 

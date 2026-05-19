@@ -14,6 +14,20 @@ const initialHourRows = [
   { label: "汇总", total: 0, qc: 0, wait_outbound: 0, out_wait_pickup: 0, picked: 0, summary: true },
 ];
 
+const initialTailSummary = {
+  picked_overdue: 0,
+  unpicked_overdue: 0,
+  unpicked_soon: 0,
+  qc_soon: 0,
+};
+
+const tailSummaryRows = [
+  ["picked_overdue", "已揽收超时单量"],
+  ["unpicked_overdue", "未揽收超时单量"],
+  ["unpicked_soon", "未揽收即将超时 >6.5h 单量"],
+  ["qc_soon", "质检中即将超时 >4.5h 单量"],
+];
+
 function nowMeta() {
   const now = new Date();
   return {
@@ -120,6 +134,28 @@ function TailTable({ rows }) {
   );
 }
 
+function TailSummaryTable({ summary }) {
+  return (
+    <table className="tail-summary" aria-label="8小时尾单汇总表">
+      <colgroup><col /><col /></colgroup>
+      <thead>
+        <tr>
+          <th>汇总项目</th>
+          <th>总数</th>
+        </tr>
+      </thead>
+      <tbody>
+        {tailSummaryRows.map(([key, label]) => (
+          <tr key={key}>
+            <th>{label}</th>
+            <td>{summary[key] || 0}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 export default function App() {
   const [reportTime, setReportTime] = useState(() => toInputDateTime(new Date()));
   const [report, setReport] = useState(() => ({
@@ -132,6 +168,7 @@ export default function App() {
     carrier_table: initialCarrierRows,
     hour_table: initialHourRows,
     tail_table: [],
+    tail_summary: initialTailSummary,
   }));
   const [currentFile, setCurrentFile] = useState(null);
   const [status, setStatus] = useState("等待上传 Excel。");
@@ -226,6 +263,10 @@ export default function App() {
             <section className="section">
               <div className="section-title">作业整体进度（按入仓时间）</div>
               <HourTable rows={report.hour_table} />
+            </section>
+            <section className="section tail-summary-section">
+              <div className="section-title">8小时尾单汇总</div>
+              <TailSummaryTable summary={report.tail_summary || initialTailSummary} />
             </section>
           </div>
 

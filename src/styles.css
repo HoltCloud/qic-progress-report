@@ -197,6 +197,28 @@ th {
   background: #fff;
 }
 
+.tail-summary-section {
+  margin: 18px 18px 0;
+}
+
+.tail-summary-section .section-title {
+  border-left-width: 1px;
+}
+
+.tail-summary th,
+.tail-summary td {
+  height: 48px;
+  font-size: 15px;
+}
+
+.tail-summary tbody th {
+  text-align: left;
+  padding-left: 22px;
+}
+
+.tail-summary col:first-child { width: 430px; }
+.tail-summary col:last-child { width: 142px; }
+
 .hourly th[rowspan] { height: 82px; }
 .summary-row td, .summary-row th { font-weight: 800; }
 .empty-line td { height: 42px; color: transparent; }
