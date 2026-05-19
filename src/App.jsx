@@ -84,9 +84,8 @@ function HourTable({ rows }) {
   );
 }
 
-function TailTable({ rows, summary }) {
-  const allRows = summary ? [...rows, summary] : rows;
-  const blankRows = Math.max(20 - allRows.length, 8);
+function TailTable({ rows }) {
+  const blankRows = Math.max(20 - rows.length, 8);
   return (
     <table aria-label="8小时尾单跟进表">
       <colgroup><col /><col /><col /><col /><col /><col /></colgroup>
@@ -111,16 +110,6 @@ function TailTable({ rows, summary }) {
             <td>{row.qc_soon}</td>
           </tr>
         ))}
-        {summary && (
-          <tr className="tail-summary-row">
-            <th>{summary.merchant}</th>
-            <td>{summary.total}</td>
-            <td>{summary.picked_overdue}</td>
-            <td>{summary.unpicked_overdue}</td>
-            <td>{summary.unpicked_soon}</td>
-            <td>{summary.qc_soon}</td>
-          </tr>
-        )}
         {Array.from({ length: blankRows }, (_, index) => (
           <tr className="empty-line" key={`blank-${index}`}>
             <td>.</td><td>.</td><td>.</td><td>.</td><td>.</td><td>.</td>
@@ -143,7 +132,6 @@ export default function App() {
     carrier_table: initialCarrierRows,
     hour_table: initialHourRows,
     tail_table: [],
-    tail_summary: null,
   }));
   const [currentFile, setCurrentFile] = useState(null);
   const [status, setStatus] = useState("等待上传 Excel。");
@@ -157,8 +145,7 @@ export default function App() {
     try {
       const nextReport = await analyzeWorkbookFile(file, time);
       setReport(nextReport);
-      const s = nextReport.tail_summary;
-      setStatus(`已统计 ${nextReport.valid_count} 单，右侧商家 ${nextReport.merchant_count} 个、商家总单量 ${nextReport.merchant_total} 单；已剔除取消/无入库时间 ${nextReport.skipped_count} 单。超时汇总：已揽收超时 ${s.picked_overdue}、未揽收超时 ${s.unpicked_overdue}、未揽收即将超时 ${s.unpicked_soon}、质检中即将超时 ${s.qc_soon}。`);
+      setStatus(`已统计 ${nextReport.valid_count} 单，右侧商家 ${nextReport.merchant_count} 个、商家总单量 ${nextReport.merchant_total} 单；已剔除取消/无入库时间 ${nextReport.skipped_count} 单。`);
     } catch (error) {
       console.error(error);
       setStatus(error.message || "解析失败，请检查文件格式。");
@@ -247,7 +234,7 @@ export default function App() {
           <div className="right">
             <section className="section">
               <div className="section-title">8小时尾单跟进表</div>
-              <TailTable rows={report.tail_table} summary={report.tail_summary} />
+              <TailTable rows={report.tail_table} />
             </section>
           </div>
         </div>

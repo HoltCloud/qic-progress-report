@@ -184,16 +184,7 @@ function buildTailTable(orders, reportAt) {
     });
   }
 
-  const summary = {
-    merchant: "合计",
-    total: rows.reduce((sum, r) => sum + r.total, 0),
-    picked_overdue: rows.reduce((sum, r) => sum + r.picked_overdue, 0),
-    unpicked_overdue: rows.reduce((sum, r) => sum + r.unpicked_overdue, 0),
-    unpicked_soon: rows.reduce((sum, r) => sum + r.unpicked_soon, 0),
-    qc_soon: rows.reduce((sum, r) => sum + r.qc_soon, 0),
-  };
-
-  return { rows, summary };
+  return rows;
 }
 
 export function analyzeRows(rows, reportTime) {
@@ -218,19 +209,18 @@ export function analyzeRows(rows, reportTime) {
     }
   });
 
-  const { rows: tailRows, summary: tailSummary } = buildTailTable(valid, reportAt);
+  const tailTable = buildTailTable(valid, reportAt);
 
   return {
     report_date: `${reportAt.getFullYear()}/${reportAt.getMonth() + 1}/${reportAt.getDate()}`,
     report_clock: `${pad(reportAt.getHours())}:${pad(reportAt.getMinutes())}`,
     valid_count: valid.length,
     skipped_count: orders.length - valid.length,
-    merchant_count: tailRows.length,
-    merchant_total: tailSummary.total,
+    merchant_count: tailTable.length,
+    merchant_total: tailTable.reduce((sum, row) => sum + row.total, 0),
     carrier_table: buildCarrierTable(valid),
     hour_table: buildHourTable(valid, reportAt),
-    tail_table: tailRows,
-    tail_summary: tailSummary,
+    tail_table: tailTable,
   };
 }
 
