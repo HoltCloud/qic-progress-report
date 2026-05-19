@@ -205,6 +205,64 @@ function buildTailSummary(tailTable) {
   );
 }
 
+function dayAt(date, offsetDays, hour = 0, minute = 0, second = 0, millisecond = 0) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + offsetDays, hour, minute, second, millisecond);
+}
+
+function inRange(date, start, end) {
+  return date >= start && date < end;
+}
+
+function buildTailOrders(orders, reportAt) {
+  const todayStart = dayAt(reportAt, 0);
+  const todaySix = dayAt(reportAt, 0, 6);
+  const todayNine = dayAt(reportAt, 0, 9);
+  const yesterdayStart = dayAt(reportAt, -1);
+  const yesterdayEightPm = dayAt(reportAt, -1, 20);
+  const yesterdayNine = dayAt(reportAt, -1, 9);
+  const twoDaysAgoEightPm = dayAt(reportAt, -2, 20);
+  const beforeTodaySix = reportAt < todaySix;
+
+  return orders.flatMap((order) => {
+    if (beforeTodaySix && inRange(order.inboundAt, yesterdayEightPm, todayStart)) {
+      return [];
+    }
+
+    if (inRange(order.inboundAt, yesterdayEightPm, todayStart)) {
+      return [{ ...order, inboundAt: new Date(todayNine) }];
+    }
+
+    if (inRange(order.inboundAt, twoDaysAgoEightPm, yesterdayStart)) {
+      return [{ ...order, inboundAt: new Date(yesterdayNine) }];
+    }
+
+    return [order];
+  });
+}
+
+function buildHourOrders(orders, reportAt) {
+  const todayStart = dayAt(reportAt, 0);
+  const todaySix = dayAt(reportAt, 0, 6);
+  const todayNine = dayAt(reportAt, 0, 9);
+  const yesterdayStart = dayAt(reportAt, -1);
+  const yesterdayEightPm = dayAt(reportAt, -1, 20);
+  const yesterdayNine = dayAt(reportAt, -1, 9);
+  const twoDaysAgoEightPm = dayAt(reportAt, -2, 20);
+  const beforeTodaySix = reportAt < todaySix;
+
+  return orders.map((order) => {
+    if (beforeTodaySix && inRange(order.inboundAt, twoDaysAgoEightPm, yesterdayStart)) {
+      return { ...order, inboundAt: new Date(yesterdayNine) };
+    }
+
+    if (!beforeTodaySix && inRange(order.inboundAt, yesterdayEightPm, todayStart)) {
+      return { ...order, inboundAt: new Date(todayNine) };
+    }
+
+    return order;
+  });
+}
+
 export function analyzeRows(rows, reportTime) {
   const reportAt = reportTime ? new Date(reportTime) : new Date();
   if (Number.isNaN(reportAt.getTime())) {
@@ -213,21 +271,9 @@ export function analyzeRows(rows, reportTime) {
 
   const orders = rows.map(normalizeOrder);
   const valid = orders.filter((order) => !order.isCanceled && order.inboundAt && order.statusRaw !== "小邮局处理中");
-
-  // 仅将报表日前一天 20:00 至报表日 0:00 前的入库时间调整为报表日当天 9:00
-  const reportDate = new Date(reportAt.getFullYear(), reportAt.getMonth(), reportAt.getDate());
-  const rolloverStart = new Date(reportDate);
-  rolloverStart.setDate(rolloverStart.getDate() - 1);
-  rolloverStart.setHours(20, 0, 0, 0);
-  const rolloverTarget = new Date(reportDate.getFullYear(), reportDate.getMonth(), reportDate.getDate(), 9, 0, 0);
-
-  valid.forEach((order) => {
-    if (order.inboundAt >= rolloverStart && order.inboundAt < reportDate) {
-      order.inboundAt = new Date(rolloverTarget);
-    }
-  });
-
-  const tailTable = buildTailTable(valid, reportAt);
+  const hourOrders = buildHourOrders(valid, reportAt);
+  const tailOrders = buildTailOrders(valid, reportAt);
+  const tailTable = buildTailTable(tailOrders, reportAt);
   const tailSummary = buildTailSummary(tailTable);
 
   return {
@@ -238,7 +284,7 @@ export function analyzeRows(rows, reportTime) {
     merchant_count: tailTable.length,
     merchant_total: tailTable.reduce((sum, row) => sum + row.total, 0),
     carrier_table: buildCarrierTable(valid),
-    hour_table: buildHourTable(valid, reportAt),
+    hour_table: buildHourTable(hourOrders, reportAt),
     tail_table: tailTable,
     tail_summary: tailSummary,
   };
