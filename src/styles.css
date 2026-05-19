@@ -200,6 +200,7 @@ th {
 .hourly th[rowspan] { height: 82px; }
 .summary-row td, .summary-row th { font-weight: 800; }
 .empty-line td { height: 42px; color: transparent; }
+.tail-summary-row td, .tail-summary-row th { font-weight: 800; background: var(--header); }
 
 @media (max-width: 900px) {
   .app-shell { padding: 12px; }
