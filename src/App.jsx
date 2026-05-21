@@ -28,12 +28,181 @@ const tailSummaryRows = [
   ["qc_soon", "质检中即将超时 >4.5h 单量"],
 ];
 
+const progressRows = [
+  ["qc", "质检中"],
+  ["wait_outbound", "待出库"],
+  ["out_wait_pickup", "已出库待揽收"],
+  ["picked", "已出库已揽收"],
+];
+
+const progressColors = {
+  qc: "#d92d20",
+  wait_outbound: "#f79009",
+  out_wait_pickup: "#1570ef",
+  picked: "#039855",
+};
+
 function nowMeta() {
   const now = new Date();
   return {
     date: `${now.getFullYear()}/${now.getMonth() + 1}/${now.getDate()}`,
     clock: `${pad(now.getHours())}:${pad(now.getMinutes())}`,
   };
+}
+
+function formatPercent(value) {
+  if (!Number.isFinite(value)) return "0%";
+  return `${Math.round(value)}%`;
+}
+
+function safePercent(value, total) {
+  if (!total) return 0;
+  return Math.min(100, Math.max(0, (value / total) * 100));
+}
+
+function Dashboard({ report }) {
+  const summary = report.tail_summary || initialTailSummary;
+  const carrierTotal = report.carrier_table?.find((row) => row.label === "应出库总数") || {};
+  const totalOrders = report.valid_count || carrierTotal["合计"] || 0;
+  const picked = report.carrier_table?.find((row) => row.label === "已出库已揽收")?.["合计"] || 0;
+  const unfinished = Math.max(totalOrders - picked, 0);
+  const riskTotal = tailSummaryRows.reduce((total, [key]) => total + (summary[key] || 0), 0);
+  const progressData = progressRows.map(([key, label]) => {
+    const source = report.carrier_table?.find((row) => row.label === label) || {};
+    const count = source["合计"] || 0;
+    return { key, label, count, percent: safePercent(count, totalOrders) };
+  });
+  const hourRows = (report.hour_table || [])
+    .filter((row) => !row.summary)
+    .map((row) => ({
+      ...row,
+      unfinished: (row.qc || 0) + (row.wait_outbound || 0) + (row.out_wait_pickup || 0),
+    }));
+  const maxHourTotal = Math.max(1, ...hourRows.map((row) => row.total || 0));
+  const merchantRows = (report.tail_table || [])
+    .map((row) => ({
+      ...row,
+      risk: (row.picked_overdue || 0) + (row.unpicked_overdue || 0) + (row.unpicked_soon || 0) + (row.qc_soon || 0),
+    }))
+    .filter((row) => row.risk > 0 || row.total > 0)
+    .slice(0, 8);
+  const maxMerchantRisk = Math.max(1, ...merchantRows.map((row) => row.risk || 0));
+  const hasData = totalOrders > 0;
+
+  return (
+    <section className="dashboard" aria-label="作业风险仪表盘">
+      <div className="dashboard-head">
+        <div>
+          <h1>作业风险仪表盘</h1>
+          <p>{report.report_date} {report.report_clock} 更新</p>
+        </div>
+        <div className={`risk-badge ${riskTotal > 0 ? "is-alert" : ""}`}>
+          {riskTotal > 0 ? "需要跟进" : "暂无风险"}
+        </div>
+      </div>
+
+      <div className="kpi-grid">
+        <div className="kpi-card">
+          <span>有效单量</span>
+          <strong>{totalOrders}</strong>
+          <small>剔除 {report.skipped_count || 0} 单</small>
+        </div>
+        <div className="kpi-card">
+          <span>已揽收率</span>
+          <strong>{formatPercent(safePercent(picked, totalOrders))}</strong>
+          <small>{picked} / {totalOrders} 单</small>
+        </div>
+        <div className="kpi-card">
+          <span>未完成单量</span>
+          <strong>{unfinished}</strong>
+          <small>质检、待出库、待揽收</small>
+        </div>
+        <div className="kpi-card is-danger">
+          <span>风险尾单总量</span>
+          <strong>{riskTotal}</strong>
+          <small>{report.merchant_count || 0} 个商家</small>
+        </div>
+      </div>
+
+      <div className="risk-grid">
+        {tailSummaryRows.map(([key, label]) => (
+          <div className="risk-card" key={key}>
+            <span>{label}</span>
+            <strong>{summary[key] || 0}</strong>
+          </div>
+        ))}
+      </div>
+
+      <div className="dashboard-grid">
+        <section className="dashboard-panel">
+          <div className="panel-title">
+            <h2>状态分布</h2>
+            <span>{totalOrders} 单</span>
+          </div>
+          <div className="bar-list">
+            {progressData.map((item) => (
+              <div className="bar-row" key={item.key}>
+                <div className="bar-meta">
+                  <span>{item.label}</span>
+                  <strong>{item.count} 单</strong>
+                </div>
+                <div className="bar-track">
+                  <div
+                    className="bar-fill"
+                    style={{ width: `${item.percent}%`, backgroundColor: progressColors[item.key] }}
+                  />
+                </div>
+                <small>{formatPercent(item.percent)}</small>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="dashboard-panel">
+          <div className="panel-title">
+            <h2>高风险商家</h2>
+            <span>前 8 名</span>
+          </div>
+          <div className="merchant-list">
+            {merchantRows.length ? merchantRows.map((row) => (
+              <div className="merchant-row" key={row.merchant}>
+                <div className="merchant-meta">
+                  <strong>{row.merchant}</strong>
+                  <span>{row.risk} 风险 / {row.total} 总单</span>
+                </div>
+                <div className="bar-track">
+                  <div className="bar-fill merchant-fill" style={{ width: `${safePercent(row.risk, maxMerchantRisk)}%` }} />
+                </div>
+              </div>
+            )) : (
+              <div className="empty-dashboard">{hasData ? "暂无风险商家" : "上传 Excel 后显示商家风险排行"}</div>
+            )}
+          </div>
+        </section>
+      </div>
+
+      <section className="dashboard-panel hour-panel">
+        <div className="panel-title">
+          <h2>入仓小时进度</h2>
+          <span>红色为未完成</span>
+        </div>
+        <div className="hour-chart">
+          {hourRows.length ? hourRows.map((row) => (
+            <div className="hour-item" key={row.label}>
+              <div className="hour-label">{row.label}</div>
+              <div className="hour-bars">
+                <div className="hour-total" style={{ width: `${safePercent(row.total, maxHourTotal)}%` }} />
+                <div className="hour-unfinished" style={{ width: `${safePercent(row.unfinished, maxHourTotal)}%` }} />
+              </div>
+              <div className="hour-count">{row.unfinished}/{row.total}</div>
+            </div>
+          )) : (
+            <div className="empty-dashboard">上传 Excel 后显示按小时进度</div>
+          )}
+        </div>
+      </section>
+    </section>
+  );
 }
 
 function CarrierTable({ rows }) {
@@ -157,6 +326,7 @@ function TailSummaryTable({ summary }) {
 }
 
 export default function App() {
+  const [activeView, setActiveView] = useState("report");
   const [reportTime, setReportTime] = useState(() => toInputDateTime(new Date()));
   const [report, setReport] = useState(() => ({
     report_date: nowMeta().date,
@@ -246,7 +416,30 @@ export default function App() {
 
       <p className="hint">上传订单导出表后自动统计。单量按订单行计数，8 小时时效从入库时间开始计算；Excel 只在本浏览器内解析，不会上传服务器。</p>
 
-      <section className="report-wrap">
+      <div className="view-tabs" role="tablist" aria-label="页面切换">
+        <button
+          type="button"
+          className={activeView === "dashboard" ? "is-active" : ""}
+          onClick={() => setActiveView("dashboard")}
+          aria-selected={activeView === "dashboard"}
+          role="tab"
+        >
+          仪表盘
+        </button>
+        <button
+          type="button"
+          className={activeView === "report" ? "is-active" : ""}
+          onClick={() => setActiveView("report")}
+          aria-selected={activeView === "report"}
+          role="tab"
+        >
+          明细报表
+        </button>
+      </div>
+
+      {activeView === "dashboard" && <Dashboard report={report} />}
+
+      <section className={`report-wrap ${activeView === "report" ? "" : "is-hidden-screen"}`}>
         <div ref={reportRef} className="report">
           <div className="title">水贝珠宝质检中心　　作业进度小时跟进表</div>
           <div className="meta">
