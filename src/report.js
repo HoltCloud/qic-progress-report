@@ -62,7 +62,7 @@ function normalizeOrder(row) {
     inboundAt: parseExcelDate(valueByHeader(row, ["入库时间", "入仓时间"])),
     qcDoneAt: parseExcelDate(valueByHeader(row, ["质检完成时间", "质检时间"])),
     outboundAt: parseExcelDate(valueByHeader(row, ["出库时间", "出仓时间"])),
-    pickupAt: parseExcelDate(valueByHeader(row, ["揽收时间", "揽件时间"])),
+    pickupAt: parseExcelDate(valueByHeader(row, ["二段物流揽收时间", "揽收时间", "揽件时间"])),
   };
 }
 
@@ -76,7 +76,7 @@ function carrierGroup(order) {
 function progress(order) {
   if (order.pickupAt) return "picked";
   if (order.outboundAt) return "out_wait_pickup";
-  if (order.qcDoneAt || order.statusRaw.includes("待出库")) return "wait_outbound";
+  if (order.qcDoneAt || /待出[库仓]/.test(order.statusRaw)) return "wait_outbound";
   return "qc";
 }
 

@@ -122,5 +122,31 @@ function runOptionalSampleVerification() {
   });
 }
 
+function runCurrentExportVerification() {
+  const oldRows = [
+    order("质检订单", "2026-10-20 09:00", { status: "质检中" }),
+    order("待出订单", "2026-10-20 09:00", { status: "待出库" }),
+    order("待揽订单", "2026-10-20 09:00", { outboundAt: "2026-10-20 10:00" }),
+    order("已揽订单", "2026-10-20 09:00", { outboundAt: "2026-10-20 10:00", pickupAt: "2026-10-20 18:00" }),
+  ];
+  const currentRows = oldRows.map((row) => {
+    const { 揽收时间, ...rest } = row;
+    return {
+      ...rest,
+      订单履约状态: row.订单履约状态 === "待出库" ? " 待出仓 " : row.订单履约状态,
+      二段物流揽收时间: 揽收时间,
+      一段物流签收时间: "2026-10-20 08:00",
+    };
+  });
+  const oldReport = analyzeRows(oldRows, "2026-10-20T19:00");
+  const currentReport = analyzeRows(currentRows, "2026-10-20T19:00");
+  assert(JSON.stringify(currentReport) === JSON.stringify(oldReport), "Current export must produce the same report as the old format, including pickup timeliness");
+  for (const label of ["质检中", "待出库", "已出库待揽收", "已出库已揽收"]) {
+    assert(currentReport.carrier_table.find((row) => row.label === label)?.合计 === 1, `Expected one order in ${label}`);
+  }
+  console.log("Current and legacy export compatibility verification passed");
+}
+
+runCurrentExportVerification();
 runInlineVerification();
 runOptionalSampleVerification();
